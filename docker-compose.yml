@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: documents-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: documents
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d documents"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build: .
+    container_name: documents-migrate
+    entrypoint: ["./migrate"]
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/documents?sslmode=disable"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build: .
+    container_name: documents-app
+    restart: unless-stopped
+    environment:
+      PORT: "8000"
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/documents?sslmode=disable"
+      ADMIN_TOKEN: "secret_admin_token"
+      STORAGE_DIR: "/app/storage"
+      TOKEN_TTL: "24h"
+    ports:
+      - "8000:8000"
+    volumes:
+      - storage_data:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
+  storage_data:
