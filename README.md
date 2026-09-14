@@ -2,7 +2,7 @@
 
 ## Docker
 
-Требуется только Docker и Docker Compose.
+Требуется Docker и Docker Compose.
 
 ```bash
 git clone
