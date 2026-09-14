@@ -38,6 +38,7 @@ services:
       ADMIN_TOKEN: "secret_admin_token"
       STORAGE_DIR: "/app/storage"
       TOKEN_TTL: "24h"
+      CACHE_TTL: "10m"
     ports:
       - "8000:8000"
     volumes:

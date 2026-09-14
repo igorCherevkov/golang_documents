@@ -28,11 +28,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	token_cleaning.StartTokenCleaning(ctx, tokens, 1 * time.Hour)
+	token_cleaning.StartTokenCleaning(ctx, tokens, 1*time.Hour)
 
 	app := api.NewApp(cfg, users, tokens, documents)
 
-	go func () {
+	go func() {
 		<-ctx.Done()
 		log.Println("[server] shutting down gracefully")
 		if err := app.ShutdownWithContext(context.Background()); err != nil {
@@ -45,6 +45,6 @@ func main() {
 	if err := app.Listen(":" + cfg.Port); err != nil {
 		log.Printf("[server] listen error: %v", err)
 	}
-	
+
 	log.Println("[server] stopped")
 }

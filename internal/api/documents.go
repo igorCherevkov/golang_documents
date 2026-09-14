@@ -3,16 +3,41 @@ package api
 import (
 	"documents/internal/api/dto"
 	"documents/internal/api/utils"
+	"documents/internal/cache"
 	"documents/internal/models"
 	"documents/internal/store"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
+
+const listCachePrefix = "list|"
+
+func docCachePrefix(id string) string {
+	return fmt.Sprintf("doc|%s|", id)
+}
+
+func listCacheKey(requesterID string, params store.ListParams) string {
+	return fmt.Sprintf("%s%s|login=%s|key=%s|value=%s|limit=%d", listCachePrefix, requesterID, params.UserLogin, params.FilterKey, params.FilterValue,params.Limit)
+}
+
+func docCacheKey(id, requesterID string) string {
+	return docCachePrefix(id) + requesterID
+}
+
+func writeCachedRecord(ctx *fiber.Ctx, record cache.Record) error {
+	ctx.Set(fiber.HeaderContentType, record.ContentType)
+	if ctx.Method() == fiber.MethodHead {
+		return ctx.SendStatus(record.Status)
+	}
+
+	return ctx.Status(record.Status).Send(record.Body)
+}
 
 func (s *Server) uploadDocument(ctx *fiber.Ctx) error {
 	userID := userIDFromCtx(ctx)
@@ -40,16 +65,16 @@ func (s *Server) uploadDocument(ctx *fiber.Ctx) error {
 	}
 
 	doc := models.Document{
-		ID: uuid.New().String(),
-		UserID: userID,
-		Name: meta.Name,
-		Mime: meta.Mime,
-		IsFile: meta.File,
+		ID:       uuid.New().String(),
+		UserID:   userID,
+		Name:     meta.Name,
+		Mime:     meta.Mime,
+		IsFile:   meta.File,
 		IsPublic: meta.Public,
 		JSONData: jsonData,
 	}
 
-	var fileName string 
+	var fileName string
 	if meta.File {
 		fileHeader, err := ctx.FormFile("file")
 		if err != nil {
@@ -60,7 +85,7 @@ func (s *Server) uploadDocument(ctx *fiber.Ctx) error {
 			return utils.ErrInternal(ctx, "internal error")
 		}
 
-		path := filepath.Join(s.cfg.StorageDir, doc.ID + filepath.Ext(meta.Name))
+		path := filepath.Join(s.cfg.StorageDir, doc.ID+filepath.Ext(meta.Name))
 		if err := ctx.SaveFile(fileHeader, path); err != nil {
 			return utils.ErrInternal(ctx, "internal error")
 		}
@@ -73,11 +98,13 @@ func (s *Server) uploadDocument(ctx *fiber.Ctx) error {
 		return utils.ErrInternal(ctx, "internal error")
 	}
 
+	s.cache.InvalidatePrefix(listCachePrefix)
+
 	data := fiber.Map{}
 	if jsonData != nil {
 		data["json"] = json.RawMessage(jsonData)
 	}
-	
+
 	if fileName != "" {
 		data["file"] = fileName
 	}
@@ -99,10 +126,15 @@ func (s *Server) listDocuments(ctx *fiber.Ctx) error {
 
 	params := store.ListParams{
 		RequesterUserID: userID,
-		UserLogin: q.Login,
-		FilterKey: q.Key,
-		FilterValue: q.Value,
-		Limit: q.Limit,
+		UserLogin:       q.Login,
+		FilterKey:       q.Key,
+		FilterValue:     q.Value,
+		Limit:           q.Limit,
+	}
+
+	key := listCacheKey(userID, params)
+	if record, ok := s.cache.Get(key); ok {
+		return writeCachedRecord(ctx, record)
 	}
 
 	docs, err := s.documents.List(ctx.Context(), params)
@@ -114,13 +146,24 @@ func (s *Server) listDocuments(ctx *fiber.Ctx) error {
 		return utils.ErrInternal(ctx, "internal error")
 	}
 
-	if ctx.Method() == fiber.MethodHead {
-		return ctx.SendStatus(fiber.StatusOK)
-	}
-
 	response := make([]dto.DocResponse, len(docs))
 	for i, doc := range docs {
 		response[i] = dto.ToDocResponse(doc)
+	}
+
+	body, err := json.Marshal(utils.Envelope{Data: fiber.Map{"docs": response}})
+	if err != nil {
+		return utils.ErrInternal(ctx, "internal error")
+	}
+
+	s.cache.Set(key, cache.Record{
+		Status: fiber.StatusOK,
+		ContentType: fiber.MIMEApplicationJSON,
+		Body: body,
+	}, s.cfg.CacheTTL)
+
+	if ctx.Method() == fiber.MethodHead {
+		return ctx.SendStatus(fiber.StatusOK)
 	}
 
 	return utils.SendData(ctx, fiber.StatusOK, fiber.Map{"docs": response})
@@ -132,6 +175,11 @@ func (s *Server) getDocument(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	if _, err := uuid.Parse(id); err != nil {
 		return utils.ErrBadRequest(ctx, "invalid document id")
+	}
+
+	cacheKey := docCacheKey(id, userID)
+	if record, ok := s.cache.Get(cacheKey); ok {
+		return writeCachedRecord(ctx, record)
 	}
 
 	doc, err := s.documents.GetByID(ctx.Context(), id)
@@ -163,16 +211,29 @@ func (s *Server) getDocument(ctx *fiber.Ctx) error {
 		return ctx.SendFile(doc.FilePath, false)
 	}
 
-	if ctx.Method() == fiber.MethodHead {
-		return ctx.SendStatus(fiber.StatusOK)
-	}
-
 	var payload any
 	if len(doc.JSONData) > 0 {
 		payload = json.RawMessage(doc.JSONData)
 	} else {
 		payload = fiber.Map{}
 	}
+
+	body, err := json.Marshal(utils.Envelope{Data: payload})
+	if err != nil {
+		return utils.ErrInternal(ctx, "internal error")
+	}
+
+	s.cache.Set(cacheKey, cache.Record{
+		Status: fiber.StatusOK,
+		ContentType: fiber.MIMEApplicationJSON,
+		Body: body,
+	}, s.cfg.CacheTTL)
+
+	if ctx.Method() == fiber.MethodHead {
+		return ctx.SendStatus(fiber.StatusOK)
+	}
+
+	ctx.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 
 	return utils.SendData(ctx, fiber.StatusOK, payload)
 }
@@ -210,5 +271,8 @@ func (s *Server) deleteDocument(ctx *fiber.Ctx) error {
 		_ = os.Remove(doc.FilePath)
 	}
 
-	return utils.SendResponse(ctx, fiber.StatusOK, fiber.Map{"success": true})
+	s.cache.InvalidatePrefix(listCachePrefix)
+	s.cache.InvalidatePrefix(docCachePrefix(id))
+
+	return utils.SendResponse(ctx, fiber.StatusOK, fiber.Map{id: true})
 }

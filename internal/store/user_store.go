@@ -18,7 +18,7 @@ func NewUserStore(db *gorm.DB) *UserStore {
 
 func (s *UserStore) Create(ctx context.Context, login, password string) (models.User, error) {
 	u := models.User{Login: login, Password: password}
-	
+
 	err := s.db.WithContext(ctx).Create(&u).Error
 	if err != nil {
 		if isUniqueViolation(err) {

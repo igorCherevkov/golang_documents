@@ -1,6 +1,7 @@
 package api
 
 import (
+	"documents/internal/cache"
 	"documents/internal/config"
 	"documents/internal/store"
 
@@ -9,20 +10,22 @@ import (
 )
 
 type Server struct {
-	cfg	config.Config
-	users	*store.UserStore
-	tokens	*store.TokenStore
-	documents	*store.DocumentStore
-	validate	*validator.Validate
+	cfg       config.Config
+	users     *store.UserStore
+	tokens    *store.TokenStore
+	documents *store.DocumentStore
+	validate  *validator.Validate
+	cache	*cache.Cache
 }
 
 func NewServer(cfg config.Config, users *store.UserStore, tokens *store.TokenStore, documents *store.DocumentStore) *Server {
 	return &Server{
-		cfg: cfg,
-		users: users,
-		tokens: tokens,
+		cfg:       cfg,
+		users:     users,
+		tokens:    tokens,
 		documents: documents,
-		validate: validator.New(),
+		validate:  validator.New(),
+		cache: cache.NewCache(),
 	}
 }
 

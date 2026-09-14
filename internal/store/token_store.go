@@ -19,8 +19,8 @@ func NewTokenStore(db *gorm.DB) *TokenStore {
 
 func (s *TokenStore) Create(ctx context.Context, token, userID string, ttl time.Duration) error {
 	t := models.Token{
-		Token: token,
-		UserID: userID,
+		Token:     token,
+		UserID:    userID,
 		ExpiresAt: time.Now().Add(ttl),
 	}
 

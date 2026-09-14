@@ -3,14 +3,14 @@ package utils
 import "github.com/gofiber/fiber/v2"
 
 type ApiError struct {
-	Code	int	`json:"code"`
-	Text	string	`json:"text"`
+	Code int    `json:"code"`
+	Text string `json:"text"`
 }
 
 type Envelope struct {
-	Error	*ApiError	`json:"error,omitempty"`
-	Response	any	`json:"response,omitempty"`
-	Data	any	`json:"data,omitempty"`
+	Error    *ApiError `json:"error,omitempty"`
+	Response any       `json:"response,omitempty"`
+	Data     any       `json:"data,omitempty"`
 }
 
 func SendError(c *fiber.Ctx, status int, text string) error {

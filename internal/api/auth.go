@@ -52,7 +52,7 @@ func (s *Server) auth(ctx *fiber.Ctx) error {
 	}
 
 	user, err := s.users.GetUserByLogin(ctx.Context(), req.Login)
-	if err !=  nil {
+	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return utils.ErrUnauthorized(ctx, "invalid login or password")
 		}

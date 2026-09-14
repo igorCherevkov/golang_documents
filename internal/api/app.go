@@ -11,7 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
-func NewApp(cfg config.Config, users *store.UserStore, tokens *store.TokenStore, documents *store.DocumentStore) * fiber.App {
+func NewApp(cfg config.Config, users *store.UserStore, tokens *store.TokenStore, documents *store.DocumentStore) *fiber.App {
 	app := fiber.New()
 
 	app.Use(cors.New(cors.Config{
@@ -20,10 +20,10 @@ func NewApp(cfg config.Config, users *store.UserStore, tokens *store.TokenStore,
 
 	app.Use(requestLogger())
 
-	app.Get("/health", func (ctx *fiber.Ctx) error {
+	app.Get("/health", func(ctx *fiber.Ctx) error {
 		return ctx.JSON(fiber.Map{
-			"success": true,
-			"message": "Documents API is running",
+			"success":   true,
+			"message":   "Documents API is running",
 			"timestamp": time.Now().UTC().Format(time.RFC3339),
 		})
 	})
@@ -41,7 +41,7 @@ func isMultipartRequest(ctx *fiber.Ctx) bool {
 func requestLogger() fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		start := time.Now()
-		
+
 		err := ctx.Next()
 
 		status := ctx.Response().StatusCode()

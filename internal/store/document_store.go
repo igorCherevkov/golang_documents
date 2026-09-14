@@ -11,12 +11,12 @@ import (
 )
 
 var filterColumns = map[string]string{
-	"name":	"name",
-	"mime":	"mime",
-	"file":	"is_file",
-	"public":	"is_public",
-	"is_file":	"is_file",
-	"is_public":	"is_public",
+	"name":      "name",
+	"mime":      "mime",
+	"file":      "is_file",
+	"public":    "is_public",
+	"is_file":   "is_file",
+	"is_public": "is_public",
 }
 
 type DocumentStore struct {
@@ -47,7 +47,7 @@ func (s *DocumentStore) Create(ctx context.Context, document models.Document, gr
 		}
 
 		grants := make([]models.DocumentGrant, 0, len(userIDs))
-		
+
 		for _, userID := range userIDs {
 			grants = append(grants, models.DocumentGrant{DocumentID: document.ID, UserID: userID})
 		}
@@ -69,13 +69,13 @@ func (s *DocumentStore) Create(ctx context.Context, document models.Document, gr
 }
 
 type ListParams struct {
-	RequesterUserID	string
-	UserLogin	string
-	FilterKey	string
-	FilterValue	string
-	Limit	int
+	RequesterUserID string
+	UserLogin       string
+	FilterKey       string
+	FilterValue     string
+	Limit           int
 }
- 
+
 func (s *DocumentStore) List(ctx context.Context, params ListParams) ([]models.Document, error) {
 	query := s.db.WithContext(ctx).Model(&models.Document{})
 
@@ -83,9 +83,9 @@ func (s *DocumentStore) List(ctx context.Context, params ListParams) ([]models.D
 		query = query.Joins("JOIN users owner ON owner.id = documents.user_id").
 			Where("owner.login = ?", params.UserLogin).
 			Where(
-				"(owner.id = ? OR documents.is_public = true OR EXISTS (" +
-				"SELECT 1 FROM document_grants g WHERE g.document_id = documents.id AND g.user_id = ?" + 
-				"))",
+				"(owner.id = ? OR documents.is_public = true OR EXISTS ("+
+					"SELECT 1 FROM document_grants g WHERE g.document_id = documents.id AND g.user_id = ?"+
+					"))",
 				params.RequesterUserID, params.RequesterUserID,
 			)
 	} else {
@@ -136,7 +136,7 @@ func (s *DocumentStore) GetByID(ctx context.Context, id string) (models.Document
 	var document models.Document
 
 	err := s.db.WithContext(ctx).Where("id = ?", id).First(&document).Error
-	
+
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return models.Document{}, ErrNotFound

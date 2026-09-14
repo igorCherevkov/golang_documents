@@ -16,11 +16,11 @@ func StartTokenCleaning(ctx context.Context, tokens *store.TokenStore, interval 
 
 		for {
 			select {
-			case <- ctx.Done():
+			case <-ctx.Done():
 				log.Println("[token_cleaning] token cleaning stopped")
-				
+
 				return
-			case <- ticker.C:
+			case <-ticker.C:
 				deletedTokens, err := tokens.DeleteExpiredTokens(ctx)
 				if err != nil {
 					log.Printf("[token_cleaning] failed to delete tokens: %v", err)

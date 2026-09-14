@@ -13,7 +13,8 @@ type Config struct {
 	DatabaseURL string
 	AdminToken  string
 	StorageDir  string
-	TokenTTL	time.Duration
+	TokenTTL    time.Duration
+	CacheTTL	time.Duration
 }
 
 func Load() Config {
@@ -22,11 +23,12 @@ func Load() Config {
 	}
 
 	return Config{
-		Port:        getEnv("PORT", "8000"),
+		Port: getEnv("PORT", "8000"),
 		DatabaseURL: getEnv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/documents?schema=public"),
-		AdminToken:  getEnv("ADMIN_TOKEN", "secret_admin_token"),
-		StorageDir:  getEnv("STORAGE_DIR", "./storage"),
-		TokenTTL: getEnvDuration("TOKEN_TTL", 24 * time.Hour),
+		AdminToken: getEnv("ADMIN_TOKEN", "secret_admin_token"),
+		StorageDir: getEnv("STORAGE_DIR", "./storage"),
+		TokenTTL: getEnvDuration("TOKEN_TTL", 24*time.Hour),
+		CacheTTL: getEnvDuration("CACHE_TTL", 10*time.Minute),
 	}
 }
 
